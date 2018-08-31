@@ -1,0 +1,331 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Module>
+    <ModulePrefs title="Agile KPI : Jours de stock"  description="">
+        <Optional feature="gadget-directory">
+            <Param name="categories">
+                Other
+            </Param>
+        </Optional>
+        <Optional feature="atlassian.util" />
+        <Optional feature="auth-refresh" />
+        <Require feature="oauthpopup" />
+        <Require feature="dynamic-height"/>
+        <Require feature="setprefs"/>
+        <Require feature="settitle"/>
+        <Require feature="views"/>
+
+        #oauth
+        #supportedLocales("gadget.common,gadget.filter.results,gadget.issuetable.common")
+
+
+        <Locale messages="__ATLASSIAN_BASE_URL__/download/resources/com.atlassian.plugins.tutorial.jira-gadget-tutorial-plugin/i18n/ALL_ALL.xml"/>
+    </ModulePrefs>
+
+    <UserPref name="isConfigured" datatype="hidden" default_value="false"/>
+    <UserPref name="refresh" datatype="hidden" default_value="false"/>
+
+    <!--Jours de stock-->
+    <UserPref name="JStimeUnit" datatype="hidden" />
+    <UserPref name="JSBacklohGroup" datatype="hidden" />
+    <UserPref name="JSProjID" datatype="hidden" />
+
+
+    <Content type="html" view="profile,canvas,home">
+        <![CDATA[
+        #requireResource("com.atlassian.jira.gadgets:common")
+        #requireResource("com.atlassian.gadgets.publisher:ajs-gadgets")
+        #requireResource("com.atlassian.jira.gadgets:autocomplete")
+        #includeResources()
+
+
+<style scoped>
+
+        .btn {
+            background: rgb(168,203,253); /* this is a light blue */
+            color: white;
+            border-radius: 4px;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+            padding: 5px 5px;
+            text-align: center;
+        }
+
+        .dv {
+            display: block;
+            background-color:#fff;
+            color: red;
+            border-radius: 12px;
+            border: none;
+            padding: 20px;
+            text-align: center;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-block;
+            font-size: 14px;
+            margin: 7px 20px;
+
+        }
+
+        .dvBtn {
+            display: block;
+            background-color:#fff;
+            border-radius: 12px;
+            border: none;
+            padding: 2px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 7px 10px;
+            float:right;
+
+        }
+
+
+
+        .dvchart {
+
+            padding: 20px;
+            margin: 15 px 15 px;
+
+        }
+
+    </style>
+
+
+<script src="https://www.gstatic.com/charts/loader.js"></script>
+<script src="https://github.com/niklasvh/html2canvas/releases/download/0.5.0-alpha1/html2canvas.js"></script>
+
+    <script type="text/javascript">
+            (function () {
+                var gadget = AJS.Gadget({
+                    baseUrl: "__ATLASSIAN_BASE_URL__",
+                    useOauth: "/rest/gadget/1.0/currentUser",
+
+
+                     config:
+                           {
+                            descriptor: function (args) {
+                            var gadget = this;
+
+                            var ok=AJS.gadget.fields.projectOrFilterPicker(gadget, "JSProjID");
+
+
+
+                                    return {
+                                           fields: [
+
+
+                                               <!--*******************************-->
+                                                    <!--Jours de stock fields-->
+                                               <!--*******************************-->
+                                                {
+                                                    type: "custom",
+                                                    template: function(){
+                                                        return "<div id='sla' class='sla'><strong class='titleText'> Configuration du KPI : Jours de stock </strong></div>";
+                                                    }
+                                                },
+
+
+
+                                                  ok,
+
+                                               {
+                                                    userpref: "JStimeUnit",
+                                                    label: "unité de la période",
+                                                    description:"",
+                                                    type: "select",
+                                                    selected: gadget.getPref("JStimeUnit"),
+                                                    options:[
+
+                                                                {
+                                                            label:"minute",
+                                                            value:"min"
+                                                                },
+                                                                {
+                                                            label:"heure",
+                                                            value:"hour"
+                                                                },
+                                                                {
+                                                            label:"jour",
+                                                            value:"day"
+                                                                }
+                                                             ]
+                                               },
+                                                {
+                                                    userpref: "JSBacklohGroup",
+                                                    label: "les backlogs à présenter ?",
+                                                    description:"",
+                                                    type: "select",
+                                                    selected: gadget.getPref("JSBacklohGroup"),
+                                                    options:[
+
+                                                                {
+                                                            label:"tous les backlogs",
+                                                            value:"AllBG"
+                                                                },
+                                                                {
+                                                            label:"les backlogs du projet séléctionné",
+                                                            value:"ProjectBG"
+                                                                }
+                                                             ]
+                                               },
+
+
+
+
+                                                AJS.gadget.fields.nowConfigured()
+
+
+
+                                           ]
+
+                                    };
+                              }
+                            },
+
+
+
+                    view: {
+                        onResizeAdjustHeight: true,
+                        enableReload: true,
+                        template: function(args) {
+                            var gadget = this;
+
+                            <!--*******************************-->
+                            <!---->
+                            <!--*******Jours de stocks*********-->
+                            <!---->
+                            <!--*******************************-->
+
+
+
+                                       gadget.getView().empty();
+
+                                      AJS.$("<div id='chart_div_JS' class='dvchart' />").appendTo(gadget.getView());
+                                      AJS.$("<div id='BtnDiv' class='dvBtn' />").appendTo(gadget.getView());
+
+
+
+                                      google.charts.load('current', {packages: ['corechart', 'line']});
+                                      google.charts.setOnLoadCallback(drawJS);
+                                       var Url="__ATLASSIAN_BASE_URL__";
+
+                                      function drawJS() {
+                                        var jsonData = jQuery.ajax({
+                                          url: "/rest/kpi/1.0/jstock.json",
+                                          dataType: "json",
+                                          data:                     {
+                                                                        ProjectID: gadget.getPref("JSProjID"),
+                                                                        BacklogGroupe: gadget.getPref("JSBacklohGroup"),
+                                                                        TimeUnit: gadget.getPref("JStimeUnit"),
+                                                                        JiraURL: Url
+                                                                    },
+                                          async: false
+                                          }).responseText;
+
+
+                                        var array  = jQuery.parseJSON(jsonData);
+
+                                        var data = new google.visualization.DataTable();
+
+                                          data.addColumn('string', 'nom des backlogs');
+                                          data.addColumn('number', 'Nbre de jours de stock');
+
+                                          data.addRows(array);
+
+                                          var options = {
+                                            title: 'Délai entre la fin du développement et la mise en production',
+
+                                            hAxis: {
+                                              title: 'User Stories'
+                                            },
+                                            vAxis: {
+                                              title: 'Nbre de jours de stock'
+                                            }
+                                          };
+
+                                          var chart = new google.visualization.LineChart(document.getElementById('chart_div_JS'));
+
+                                          chart.draw(data, options);
+
+                                      }
+
+
+
+                                      AJS.$( "#BtnDiv").append( "<strong>Exporter: </strong>" );
+
+                                    //image code
+
+
+
+
+                                            jQuery(function() {
+
+
+                                            jQuery('<button/>', {
+                                                    text: 'JPG',
+                                                    class : 'btn',
+                                                    click: jpgImage
+                                                }).appendTo("#BtnDiv");
+
+
+                                            jQuery('<button/>', {
+                                                    text: 'PNG',
+                                                    class : 'btn',
+                                                    click: pngImage
+                                                }).appendTo("#BtnDiv");
+
+                                            jQuery('<button/>', {
+                                                    text: 'imprimer',
+                                                    class : 'btn',
+                                                    click: printImg
+                                                }).appendTo("#BtnDiv");
+
+
+                                            });
+
+                                            function jpgImage () {
+                                            var element = jQuery("#chart_div_JS");
+                                            html2canvas(element, {
+                                                letterRendering: true,
+                                                logging:true,
+                                            }).then(function(canvas){
+                                                            var imgageData = canvas.toDataURL("image/jpg");
+                                                    var newData = imgageData.replace(/^data:image\/jpg/, "data:application/octet-stream");
+                                                    jQuery("<a>", {href:newData, download:"Proof1.jpg",on:{click:function(){jQuery(this).remove()}}})
+                                                    .appendTo("body")[0].click()
+                                             })
+                                            };
+
+                                            function pngImage () {
+                                            var element = jQuery("#chart_div_JS");
+                                            html2canvas(element, {
+                                                letterRendering: true,
+                                                logging:true,
+                                            }).then(function(canvas){
+                                                            var imgageData = canvas.toDataURL("image/png");
+                                                    var newData = imgageData.replace(/^data:image\/png/, "data:application/octet-stream");
+                                                    jQuery("<a>", {href:newData, download:"Proof1.png",on:{click:function(){jQuery(this).remove()}}})
+                                                    .appendTo("body")[0].click()
+                                             })
+                                            };
+
+
+                                            function printImg ()
+                                             { var divContents = jQuery("#chart_div_JS").html();
+                                             var printWindow = window.open('', '', 'height=700,width=1000');
+                                             printWindow.document.write(divContents);
+                                             printWindow.document.close(); printWindow.print();
+                                             };
+
+
+
+                        },
+                        args: []
+                    }
+                });
+            })();
+        </script>
+        ]]>
+    </Content>
+</Module>

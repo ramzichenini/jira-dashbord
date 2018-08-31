@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Module>
+    <ModulePrefs title="Agile KPI: Vélocité "  description="">
+        <Optional feature="gadget-directory">
+            <Param name="categories">
+                Other
+            </Param>
+        </Optional>
+        <Optional feature="atlassian.util" />
+        <Optional feature="auth-refresh" />
+        <Require feature="oauthpopup" />
+        <Require feature="dynamic-height"/>
+        <Require feature="setprefs"/>
+        <Require feature="settitle"/>
+        <Require feature="views"/>
+
+        #oauth
+        #supportedLocales("gadget.common,gadget.filter.results,gadget.issuetable.common")
+
+
+        <Locale messages="__ATLASSIAN_BASE_URL__/download/resources/com.atlassian.plugins.tutorial.jira-gadget-tutorial-plugin/i18n/ALL_ALL.xml"/>
+    </ModulePrefs>
+
+    <UserPref name="isConfigured" datatype="hidden" default_value="false"/>
+    <UserPref name="refresh" datatype="hidden" default_value="false"/>
+
+
+
+    <!--velocité-->
+    <UserPref name="Vconfig" datatype="hidden" />
+
+
+
+
+
+    <Content type="html" view="profile,canvas,home">
+        <![CDATA[
+        #requireResource("com.atlassian.jira.gadgets:common")
+        #requireResource("com.atlassian.gadgets.publisher:ajs-gadgets")
+        #requireResource("com.atlassian.jira.gadgets:autocomplete")
+        #includeResources()
+
+
+<style scoped>
+
+        .btn {
+            background: rgb(168,203,253); /* this is a light blue */
+            color: white;
+            border-radius: 4px;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+            padding: 5px 5px;
+            text-align: center;
+        }
+
+        .dv {
+            display: block;
+            background-color:#fff;
+            color: red;
+            border-radius: 12px;
+            border: none;
+            padding: 20px;
+            text-align: center;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-block;
+            font-size: 14px;
+            margin: 7px 20px;
+
+        }
+
+        .dvBtn {
+            display: block;
+            background-color:#fff;
+            border-radius: 12px;
+            border: none;
+            padding: 2px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 14px;
+            margin: 7px 10px;
+            float:right;
+
+        }
+
+
+
+        .dvchart {
+
+            padding: 20px;
+            margin: 15 px 15 px;
+
+        }
+
+    </style>
+
+
+<script src="https://www.gstatic.com/charts/loader.js"></script>
+<script src="https://github.com/niklasvh/html2canvas/releases/download/0.5.0-alpha1/html2canvas.js"></script>
+
+    <script type="text/javascript">
+            (function () {
+                var gadget = AJS.Gadget({
+                    baseUrl: "__ATLASSIAN_BASE_URL__",
+                    useOauth: "/rest/gadget/1.0/currentUser",
+
+
+                     config:
+                           {
+                            descriptor: function (args) {
+                            var gadget = this;
+                            var showSelectBoards = function(name)
+
+                                    {
+                                        return {
+                                            userpref: "Vconfig",
+                                            label: "Sprint Board",
+                                            type: "select",
+                                            options: args.BoadsList.choix
+                                        };
+                                    };
+
+
+
+
+                                    return {
+                                           fields: [
+
+
+
+                                                {
+                                                    type: "custom",
+                                                    template: function(){
+                                                        return "<div id='sla' class='sla'><strong class='titleText'> Configuration du KPI : Vélocité </strong></div>";
+                                                    }
+                                                },
+
+
+                                                showSelectBoards(),
+
+                                                AJS.gadget.fields.nowConfigured()
+
+
+
+                                           ]
+
+                                    };
+                              },
+
+
+
+                    args: [
+                        {
+                            key: "BoadsList",
+                            ajaxOptions: function() {
+                            var Unrl="__ATLASSIAN_BASE_URL__";
+                                return {
+                                    dataType: "json",
+                                    url: "/rest/kpi/1.0/getBoadsList.json",
+                                    data: {
+                                            JiraURL: Unrl
+                                            },
+                                    async: false
+
+                                };
+                            }
+                        }
+                    ]
+
+
+                    },
+
+
+
+                    view: {
+                        onResizeAdjustHeight: true,
+                        enableReload: true,
+                        template: function(args) {
+                            var gadget = this;
+
+                                        <!--**************************-->
+                                        <!---->
+                                        <!--*******Velocity***********-->
+                                        <!---->
+                                        <!--**************************-->
+
+
+                                         gadget.getView().empty();
+
+                                      AJS.$("<div id='chart_div_V' class='dvchart' />").appendTo(gadget.getView());
+                                      AJS.$("<div id='BtnDiv' class='dvBtn' />").appendTo(gadget.getView());
+
+
+                                     google.charts.load('current', {packages: ['corechart', 'line']});
+                                     google.charts.setOnLoadCallback(drawVeloc);
+                                     var Url="__ATLASSIAN_BASE_URL__";
+
+                                      function drawVeloc() {
+
+
+                                        var jsonData = jQuery.ajax({
+                                          url: "/rest/kpi/1.0/velocity.json",
+                                          dataType: "json",
+                                          data:                     {
+                                                                        SelectedBoardName :gadget.getPref("Vconfig"),
+                                                                        JiraURL: Url
+                                                                    },
+                                          async: false
+                                          }).responseText;
+
+
+                                        var array  = jQuery.parseJSON(jsonData);
+
+
+                                        var data = new google.visualization.DataTable();
+                                          data.addColumn('string', 'X');
+                                          data.addColumn('number', 'vélocité');
+
+                                          data.addRows(array);
+
+                                          var options = {
+                                            title: 'Total de points d’effort réalisés par sprint',
+
+                                            hAxis: {
+                                              title: 'nom des Sprints'
+                                            },
+                                            vAxis: {
+                                              title: 'vélocité'
+                                            }
+                                          };
+
+                                          var chart = new google.visualization.LineChart(document.getElementById('chart_div_V'));
+
+                                          chart.draw(data, options);
+                                        }
+
+
+
+                                      AJS.$( "#BtnDiv").append( "<strong>Exporter: </strong>" );
+
+                                    //image code
+
+
+
+
+                                            jQuery(function() {
+
+
+                                            jQuery('<button/>', {
+                                                    text: 'JPG',
+                                                    class : 'btn',
+                                                    click: jpgImage
+                                                }).appendTo("#BtnDiv");
+
+
+                                            jQuery('<button/>', {
+                                                    text: 'PNG',
+                                                    class : 'btn',
+                                                    click: pngImage
+                                                }).appendTo("#BtnDiv");
+
+                                            jQuery('<button/>', {
+                                                    text: 'imprimer',
+                                                    class : 'btn',
+                                                    click: printImg
+                                                }).appendTo("#BtnDiv");
+
+
+                                            });
+
+                                            function jpgImage () {
+                                            var element = jQuery("#chart_div_V");
+                                            html2canvas(element, {
+                                                letterRendering: true,
+                                                logging:true,
+                                            }).then(function(canvas){
+                                                            var imgageData = canvas.toDataURL("image/jpg");
+                                                    var newData = imgageData.replace(/^data:image\/jpg/, "data:application/octet-stream");
+                                                    jQuery("<a>", {href:newData, download:"Proof1.jpg",on:{click:function(){jQuery(this).remove()}}})
+                                                    .appendTo("body")[0].click()
+                                             })
+                                            };
+
+                                            function pngImage () {
+                                            var element = jQuery("#chart_div_V");
+                                            html2canvas(element, {
+                                                letterRendering: true,
+                                                logging:true,
+                                            }).then(function(canvas){
+                                                            var imgageData = canvas.toDataURL("image/png");
+                                                    var newData = imgageData.replace(/^data:image\/png/, "data:application/octet-stream");
+                                                    jQuery("<a>", {href:newData, download:"Proof1.png",on:{click:function(){jQuery(this).remove()}}})
+                                                    .appendTo("body")[0].click()
+                                             })
+                                            };
+
+
+                                            function printImg ()
+                                             { var divContents = jQuery("#chart_div_V").html();
+                                             var printWindow = window.open('', '', 'height=700,width=1000');
+                                             printWindow.document.write(divContents);
+                                             printWindow.document.close(); printWindow.print();
+                                             };
+
+
+
+                        },
+                        args: []
+                    }
+                });
+            })();
+        </script>
+        ]]>
+    </Content>
+</Module>
